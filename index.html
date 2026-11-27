@@ -1,0 +1,249 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow, noarchive">
+<meta name="referrer" content="no-referrer">
+<title>JBP Capital</title>
+<style>
+:root{
+  color-scheme:light;
+  --page:#f4f5f7; --card:#ffffff; --ink:#14181f; --ink2:#4b5563; --muted:#8a919c;
+  --border:rgba(20,24,31,.10); --accent:#2a78d6; --accent-ink:#ffffff;
+  --good:#0a7d2e; --warn:#9a6b00; --bad:#b3261e; --field:#f8f9fb;
+}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --page:#1e2229; --card:#262b34; --ink:#f2f4f7; --ink2:#c3c8d1; --muted:#8f97a3;
+  --border:rgba(255,255,255,.10); --accent:#5b9cf0; --accent-ink:#0d1117;
+  --good:#5fcf7f; --warn:#e4b048; --bad:#ff7b72; --field:#2c323c;
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{background:var(--page);color:var(--ink);font:14px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  padding-top:env(safe-area-inset-top,0px)}
+[hidden]{display:none!important}
+/* inicio */
+#login{min-height:100%;display:flex;align-items:center;justify-content:center;padding:24px 16px}
+.box{width:100%;max-width:380px;background:var(--card);border:1px solid var(--border);border-radius:14px;padding:28px 24px;
+  display:flex;flex-direction:column;gap:14px}
+.brand{display:flex;align-items:center;gap:10px}
+.mark{width:34px;height:34px;border-radius:9px;background:var(--accent);color:var(--accent-ink);display:grid;place-items:center;
+  font-weight:800;font-size:13px;letter-spacing:.02em}
+.brand b{font-size:18px}
+.brand small{display:block;color:var(--muted);font-size:12px}
+label{font-size:12px;color:var(--ink2);font-weight:600;letter-spacing:.02em}
+input{width:100%;font:inherit;font-size:16px;padding:11px 12px;border-radius:9px;border:1px solid var(--border);background:var(--field);color:var(--ink)}
+input:focus{outline:2px solid var(--accent);outline-offset:1px}
+button{font:inherit;cursor:pointer;border-radius:9px;border:1px solid var(--border);background:var(--card);color:var(--ink);padding:9px 14px}
+button.primary{background:var(--accent);color:var(--accent-ink);border-color:transparent;font-weight:700;padding:11px 14px}
+button:disabled{opacity:.6;cursor:wait}
+.err{color:var(--bad);font-size:13px;min-height:1.2em}
+.note{color:var(--muted);font-size:12px}
+.lang{align-self:flex-end;display:flex;gap:6px}
+.lang button{padding:3px 8px;font-size:12px}
+.lang button.on{border-color:var(--accent);color:var(--accent)}
+/* visor */
+#app{height:100%;display:flex;flex-direction:column}
+.bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:8px 16px;background:var(--card);border-bottom:1px solid var(--border)}
+.bar .who{display:flex;align-items:center;gap:8px;min-width:0}
+.bar .mark{width:26px;height:26px;font-size:10px;border-radius:7px}
+.bar select{font:inherit;font-weight:700;color:var(--ink);background:var(--card);border:1px solid var(--border);border-radius:8px;padding:5px 8px}
+.bar .name{font-weight:700}
+.meta{display:flex;align-items:center;gap:8px;flex-wrap:wrap;color:var(--ink2);font-size:12px;font-variant-numeric:tabular-nums;min-width:0}
+.badge{font-weight:700;border-radius:99px;padding:2px 9px;border:1px solid currentColor;white-space:nowrap}
+.badge.ok{color:var(--good)} .badge.warn{color:var(--warn)} .badge.fail{color:var(--bad)}
+.bar .sp{flex:1}
+#frame{flex:1;width:100%;border:0;background:var(--page);display:block}
+#loading{flex:1;display:grid;place-items:center;color:var(--muted)}
+/* en móvil la barra queda en una sola línea: el corte y la verificación ya están en la cabecera del informe */
+@media (max-width:600px){ .bar{padding:6px 12px;gap:6px} .meta{display:none} }
+</style>
+</head>
+<body>
+<section id="login" hidden>
+  <form class="box" id="form" autocomplete="on">
+    <div class="lang"><button type="button" data-l="en">EN</button><button type="button" data-l="es">ES</button></div>
+    <div class="brand"><div class="mark">JBP</div><div><b>JBP Capital</b><small data-t="sub"></small></div></div>
+    <input type="text" name="username" value="jbp" autocomplete="username" hidden>
+    <label for="pw" data-t="key"></label>
+    <input id="pw" type="password" autocomplete="current-password" required>
+    <button class="primary" id="go" type="submit" data-t="enter"></button>
+    <div class="err" id="err" role="alert"></div>
+    <div class="note" data-t="note"></div>
+  </form>
+</section>
+<section id="app" hidden>
+  <div class="bar">
+    <div class="who"><div class="mark">JBP</div><select id="pick" hidden></select><span class="name" id="name"></span></div>
+    <div class="meta" id="meta"></div>
+    <div class="sp"></div>
+    <button id="out" type="button" data-t="logout"></button>
+  </div>
+  <div id="loading" data-t="loading"></div>
+  <iframe id="frame" title="report" hidden></iframe>
+</section>
+<script>
+'use strict';
+const SK='jbpweb-session', VK='jbpweb-view';
+const I18N={
+  en:{sub:'Private reports',key:'Access key',enter:'Open',note:'Your key stays on this device until you sign out.',logout:'Sign out',loading:'Decrypting…',
+      bad:'Wrong key.',changed:'The key was changed. Enter it again.',net:'Could not load the report. Check your connection and try again.',
+      cut:'Cut-off',gen:'generated',ok:'Verified',warn:'Verified · pending items',fail:'Check failed',retry:'Try again',jbp:'JBP Capital Report',personal:'JBello Portafolio',old:'Browser not supported (needs a recent Chrome, Safari, Edge or Firefox).'},
+  es:{sub:'Informes privados',key:'Clave de acceso',enter:'Entrar',note:'La clave queda en este dispositivo hasta que cierres sesión.',logout:'Cerrar sesión',loading:'Descifrando…',
+      bad:'Clave incorrecta.',changed:'La clave cambió. Vuelve a ingresarla.',net:'No se pudo cargar el informe. Revisa la conexión e intenta de nuevo.',
+      cut:'Corte',gen:'generado',ok:'Verificado',warn:'Verificado · con pendientes',fail:'Verificación con fallas',retry:'Reintentar',jbp:'JBP Capital Report',personal:'JBello Portafolio',old:'Navegador no compatible (usa Chrome, Safari, Edge o Firefox recientes).'}
+};
+const ls={get(k){try{return localStorage.getItem(k);}catch(e){return null;}},set(k,v){try{localStorage.setItem(k,v);}catch(e){}},del(k){try{localStorage.removeItem(k);}catch(e){}}};
+let lang=(ls.get('jbp-lang-v2')==='es')?'es':'en';
+const T=k=>(I18N[lang]||I18N.en)[k]||k;
+const $=s=>document.querySelector(s);
+const b64=s=>Uint8Array.from(atob(s),c=>c.charCodeAt(0));
+const tob64=u=>btoa(String.fromCharCode(...new Uint8Array(u)));
+const enc=new TextEncoder();
+let M=null, S=null, CEK={}, current=null;
+
+function theme(){ document.documentElement.dataset.theme = ls.get('jbp-theme')==='dark' ? 'dark' : 'light'; }
+function texts(){
+  document.documentElement.lang=lang;
+  document.querySelectorAll('[data-t]').forEach(e=>{ e.textContent=T(e.dataset.t); });
+  document.querySelectorAll('.lang button').forEach(b=>b.classList.toggle('on',b.dataset.l===lang));
+  $('#pw').placeholder='••••••••••••••';
+  if(current) bar(current.meta, current.which);
+}
+async function manifest(){
+  const r=await fetch('data/manifest.json?t='+Date.now(),{cache:'no-store'});
+  if(!r.ok) throw new Error('net');
+  return r.json();
+}
+async function kek(pw,slot){
+  const base=await crypto.subtle.importKey('raw',enc.encode(pw),'PBKDF2',false,['deriveBits']);
+  const bits=await crypto.subtle.deriveBits({name:'PBKDF2',hash:'SHA-256',salt:b64(slot.salt),iterations:slot.iter},base,256);
+  return new Uint8Array(bits);
+}
+async function unwrapAll(slotName,bits){
+  const k=await crypto.subtle.importKey('raw',bits,'AES-GCM',false,['decrypt']);
+  const out={};
+  for(const [rep,info] of Object.entries(M.reports)){
+    const w=info.wraps[slotName]; if(!w) continue;
+    const raw=await crypto.subtle.decrypt({name:'AES-GCM',iv:b64(w.iv)},k,b64(w.ct));
+    out[rep]=await crypto.subtle.importKey('raw',raw,'AES-GCM',false,['decrypt']);
+  }
+  return out;
+}
+async function loadReport(which){
+  const info=M.reports[which];
+  let txt=null, err=null;
+  for(let i=0;i<3&&txt===null;i++){
+    try{ const r=await fetch(info.file+'?t='+M.build+'.'+i,{cache:'no-store'}); if(!r.ok) throw new Error('net'); txt=await r.text(); }
+    catch(e){ err=e; await new Promise(res=>setTimeout(res,800*(i+1))); }
+  }
+  if(txt===null) throw err||new Error('net');
+  const ct=b64(txt.trim());
+  const plain=await crypto.subtle.decrypt({name:'AES-GCM',iv:b64(info.iv)},CEK[which],ct);
+  const ds=new Blob([plain]).stream().pipeThrough(new DecompressionStream('gzip'));
+  return JSON.parse(await new Response(ds).text());
+}
+function bar(meta,which){
+  $('#name').textContent=T(which);
+  const st=(meta.audit_status||{}).level||'';
+  const cls=st==='ok'?'ok':(st==='warn'?'warn':(st?'fail':''));
+  const a=(meta.audit_status||{}), au=a.audit||{}, it=a.integrity||{};
+  const tip=`Audit ${au.ok??'–'} OK / ${au.falla??'–'} / ${au.pendiente??'–'} · Integrity ${it.ok??'–'} OK / ${it.falla??'–'} / ${it.pendiente??'–'}`;
+  $('#meta').innerHTML='';
+  const s1=document.createElement('span'); s1.textContent=`${T('cut')} ${meta.as_of||'–'} · ${T('gen')} ${meta.generated_at_local||'–'}`;
+  $('#meta').append(s1);
+  if(cls){ const s2=document.createElement('span'); s2.className='badge '+cls; s2.title=tip; s2.textContent=T(cls); $('#meta').append(s2); }
+  const pick=$('#pick'), names=Object.keys(CEK);
+  pick.hidden=names.length<2; $('#name').hidden=!pick.hidden;
+  if(!pick.hidden){ pick.innerHTML=''; for(const n of ['personal','jbp'].filter(x=>names.includes(x))){ const o=document.createElement('option'); o.value=n; o.textContent=T(n); pick.append(o);} pick.value=which; }
+}
+async function show(which){
+  if(!CEK[which]) which=Object.keys(CEK).includes('personal')?'personal':Object.keys(CEK)[0];
+  $('#loading').textContent=T('loading'); $('#loading').hidden=false; $('#frame').hidden=true;
+  let d;
+  try{ d=await loadReport(which); }
+  catch(e){
+    $('#loading').innerHTML=''; const p=document.createElement('div'); p.textContent=T('net');
+    const b=document.createElement('button'); b.type='button'; b.textContent=T('retry'); b.onclick=()=>show(which).catch(()=>{});
+    const w=document.createElement('div'); w.style.cssText='display:flex;flex-direction:column;gap:10px;align-items:center;text-align:center;padding:16px'; w.append(p,b);
+    $('#loading').append(w); throw e;
+  }
+  current={meta:d.meta||{},which};
+  bar(current.meta,which);
+  ls.set(VK,which);
+  const f=$('#frame');
+  // el botón "Actualizar" del informe recarga la URL del artefacto; aquí debe volver a bajar y descifrar la última publicación
+  f.onload=()=>{ try{ f.contentWindow.hardReload=()=>{ forceReload(); }; }catch(e){} };
+  f.srcdoc=d.html; f.hidden=false; $('#loading').hidden=true;
+  document.title=T(which);
+}
+function toLogin(msg){
+  $('#app').hidden=true; $('#login').hidden=false; $('#frame').removeAttribute('srcdoc'); $('#frame').hidden=true; current=null; CEK={};
+  $('#meta').innerHTML=''; $('#name').textContent=''; $('#pick').innerHTML=''; $('#pick').hidden=true;
+  $('#err').textContent=msg||''; document.title='JBP Capital'; setTimeout(()=>$('#pw').focus(),50);
+}
+async function openSession(){
+  $('#login').hidden=true; $('#app').hidden=false;
+  await show(ls.get(VK)||'personal');
+}
+async function restore(){
+  const raw=ls.get(SK); if(!raw) return false;
+  try{
+    const s=JSON.parse(raw);
+    if(!M.slots[s.slot]) throw new Error('slot');
+    CEK=await unwrapAll(s.slot,b64(s.k)); S=s;
+    if(!Object.keys(CEK).length) throw new Error('none');
+    return true;
+  }catch(e){ ls.del(SK); CEK={}; S=null; return 'changed'; }
+}
+$('#form').addEventListener('submit',async e=>{
+  e.preventDefault();
+  const pw=$('#pw').value; if(!pw) return;
+  $('#go').disabled=true; $('#err').textContent='';
+  try{
+    if(!M) M=await manifest();
+    let ok=false;
+    for(const [name,slot] of Object.entries(M.slots)){
+      const bits=await kek(pw,slot);
+      try{ const c=await unwrapAll(name,bits); if(Object.keys(c).length){ CEK=c; S={slot:name,k:tob64(bits)}; ok=true; break; } }catch(err){}
+    }
+    if(!ok){ $('#err').textContent=T('bad'); return; }
+    ls.set(SK,JSON.stringify(S)); $('#pw').value='';
+    await openSession();
+  }catch(err){ $('#err').textContent=T('net'); }
+  finally{ $('#go').disabled=false; }
+});
+$('#out').addEventListener('click',()=>{ ls.del(SK); ls.del(VK); toLogin(''); });
+$('#pick').addEventListener('change',e=>{ show(e.target.value).catch(()=>{}); });
+document.querySelectorAll('.lang button').forEach(b=>b.addEventListener('click',()=>{ lang=b.dataset.l; ls.set('jbp-lang-v2',lang); texts(); }));
+addEventListener('storage',e=>{ if(e.key==='jbp-theme') theme(); if(e.key==='jbp-lang-v2'){ lang=(e.newValue==='es')?'es':'en'; texts(); } });
+// datos nuevos: al volver a la pestaña (o cada 30 min) se revisa si hubo una publicación nueva
+async function refresh(){
+  if(!current||document.hidden) return;
+  try{
+    const m=await manifest(); if(m.build===M.build) return;
+    M=m; const r=await restore(); if(r!==true){ toLogin(T('changed')); return; }
+    await show(current.which);
+  }catch(e){}
+}
+async function forceReload(){
+  if(!current) return;
+  try{ M=await manifest(); const r=await restore(); if(r!==true){ toLogin(T('changed')); return; } await show(current.which); }
+  catch(e){ $('#loading').hidden=true; $('#frame').hidden=false; }
+}
+document.addEventListener('visibilitychange',refresh); setInterval(refresh,30*60*1000);
+// también sigue el tema que elijas dentro del informe
+setInterval(theme,1500);
+(async()=>{
+  theme(); texts();
+  if(!(window.crypto&&crypto.subtle&&window.DecompressionStream)){ toLogin(T('old')); $('#go').disabled=true; return; }
+  try{ M=await manifest(); }catch(e){ toLogin(T('net')); return; }
+  const r=await restore();
+  if(r===true){ try{ await openSession(); }catch(e){ toLogin(T('net')); } }
+  else toLogin(r==='changed'?T('changed'):'');
+})();
+</script>
+</body>
+</html>
